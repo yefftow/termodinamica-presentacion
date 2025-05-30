@@ -1,0 +1,1187 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Presentación de Termodinámica</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/three@0.155.0/build/three.min.js"></script>
+    <script src="https://unpkg.com/@react-three/fiber@8.13.0/dist/index.umd.js"></script>
+    <script src="https://unpkg.com/@react-three/drei@9.80.0/dist/index.umd.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { margin: 0; font-family: system-ui, -apple-system, sans-serif; }
+        .confetti-piece {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background: #ff6b6b;
+            animation: fall 3s linear forwards;
+        }
+        @keyframes fall {
+            to { transform: translateY(100vh) rotate(360deg); }
+        }
+        .animate-bounce { animation: bounce 1s infinite; }
+        .animate-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        @keyframes bounce {
+            0%, 100% { transform: translateY(-25%); animation-timing-function: cubic-bezier(0.8,0,1,1); }
+            50% { transform: none; animation-timing-function: cubic-bezier(0,0,0.2,1); }
+        }
+        @keyframes pulse {
+            50% { opacity: .5; }
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useRef, useEffect } = React;
+        const { Canvas, useFrame } = window.ReactThreeFiber;
+        const { Sphere, Environment, Float, Text, Box } = window.Drei;
+
+        // Componente de Confetis
+        function Confetti() {
+            const [confettiPieces, setConfettiPieces] = useState([]);
+
+            useEffect(() => {
+                const pieces = [];
+                for (let i = 0; i < 50; i++) {
+                    pieces.push({
+                        id: i,
+                        x: Math.random() * window.innerWidth,
+                        y: -10,
+                        rotation: Math.random() * 360,
+                        color: ["#ff6b6b", "#4ecdc4", "#45b7d1", "#96ceb4", "#feca57", "#ff9ff3"][Math.floor(Math.random() * 6)],
+                        size: Math.random() * 10 + 5,
+                        speedX: (Math.random() - 0.5) * 4,
+                        speedY: Math.random() * 3 + 2,
+                        rotationSpeed: (Math.random() - 0.5) * 10,
+                    });
+                }
+                setConfettiPieces(pieces);
+
+                const interval = setInterval(() => {
+                    setConfettiPieces((prev) =>
+                        prev
+                            .map((piece) => ({
+                                ...piece,
+                                x: piece.x + piece.speedX,
+                                y: piece.y + piece.speedY,
+                                rotation: piece.rotation + piece.rotationSpeed,
+                            }))
+                            .filter((piece) => piece.y < window.innerHeight + 20),
+                    );
+                }, 50);
+
+                const timeout = setTimeout(() => {
+                    clearInterval(interval);
+                    setConfettiPieces([]);
+                }, 3000);
+
+                return () => {
+                    clearInterval(interval);
+                    clearTimeout(timeout);
+                };
+            }, []);
+
+            return (
+                <div className="fixed inset-0 pointer-events-none z-50">
+                    {confettiPieces.map((piece) => (
+                        <div
+                            key={piece.id}
+                            className="absolute"
+                            style={{
+                                left: piece.x,
+                                top: piece.y,
+                                width: piece.size,
+                                height: piece.size,
+                                backgroundColor: piece.color,
+                                transform: `rotate(${piece.rotation}deg)`,
+                                borderRadius: Math.random() > 0.5 ? "50%" : "0%",
+                            }}
+                        />
+                    ))}
+                </div>
+            );
+        }
+
+        // Simulador de sistemas termodinámicos
+        function ThermodynamicSystemsDemo({ systemType }) {
+            const particlesRef = useRef([]);
+
+            useFrame(() => {
+                particlesRef.current.forEach((particle, i) => {
+                    if (particle) {
+                        if (systemType === "open") {
+                            particle.position.x += (Math.random() - 0.5) * 0.15;
+                            particle.position.y += (Math.random() - 0.5) * 0.15;
+                            particle.position.z += (Math.random() - 0.5) * 0.15;
+
+                            if (Math.abs(particle.position.x) > 6) particle.position.x = (Math.random() - 0.5) * 2;
+                            if (Math.abs(particle.position.y) > 6) particle.position.y = (Math.random() - 0.5) * 2;
+                        } else if (systemType === "closed") {
+                            particle.position.x += (Math.random() - 0.5) * 0.1;
+                            particle.position.y += (Math.random() - 0.5) * 0.1;
+                            particle.position.z += (Math.random() - 0.5) * 0.05;
+
+                            if (Math.abs(particle.position.x) > 2.5) particle.position.x *= -0.9;
+                            if (Math.abs(particle.position.y) > 2.5) particle.position.y *= -0.9;
+                            if (Math.abs(particle.position.z) > 1) particle.position.z *= -0.9;
+                        } else if (systemType === "isolated") {
+                            particle.position.x += (Math.random() - 0.5) * 0.02;
+                            particle.position.y += (Math.random() - 0.5) * 0.02;
+                            particle.position.z += (Math.random() - 0.5) * 0.01;
+
+                            if (Math.abs(particle.position.x) > 1.5) particle.position.x *= 0.8;
+                            if (Math.abs(particle.position.y) > 1.5) particle.position.y *= 0.8;
+                        }
+                    }
+                });
+            });
+
+            const showContainer = systemType === "closed";
+
+            return (
+                <group position={[0, 0, 0]}>
+                    {showContainer && (
+                        <Box args={[5, 5, 2]} position={[0, 0, 0]}>
+                            <meshBasicMaterial color="#ffffff" transparent opacity={0.2} wireframe />
+                        </Box>
+                    )}
+
+                    {Array.from({ length: 25 }).map((_, i) => (
+                        <Sphere
+                            key={i}
+                            ref={(el) => (particlesRef.current[i] = el)}
+                            position={[(Math.random() - 0.5) * 2, (Math.random() - 0.5) * 2, (Math.random() - 0.5) * 0.5]}
+                            args={[0.15]}
+                        >
+                            <meshStandardMaterial
+                                color={systemType === "open" ? "#10b981" : systemType === "closed" ? "#f59e0b" : "#ef4444"}
+                                emissive={systemType === "open" ? "#10b981" : systemType === "closed" ? "#f59e0b" : "#ef4444"}
+                                emissiveIntensity={0.3}
+                            />
+                        </Sphere>
+                    ))}
+
+                    <Text position={[0, -4, 0]} fontSize={0.4} color="white" anchorX="center" anchorY="middle">
+                        {systemType === "open" && "SISTEMA ABIERTO: Intercambio libre de materia y energía"}
+                        {systemType === "closed" && "SISTEMA CERRADO: Solo intercambio de energía"}
+                        {systemType === "isolated" && "SISTEMA AISLADO: Sin intercambio"}
+                    </Text>
+                </group>
+            );
+        }
+
+        // Simulador de conservación de energía
+        function EnergyConservationDemo({ energyLevel, isRunning }) {
+            const pendulumGroupRef = useRef();
+            const ballRef = useRef();
+
+            useFrame(({ clock }) => {
+                if (pendulumGroupRef.current && isRunning) {
+                    const time = clock.getElapsedTime();
+                    const frequency = energyLevel * 1.5;
+                    const amplitude = 0.8 * energyLevel;
+                    const angle = Math.sin(time * frequency) * amplitude;
+
+                    pendulumGroupRef.current.rotation.z = angle;
+
+                    if (ballRef.current) {
+                        const speed = Math.abs(Math.cos(time * frequency));
+                        ballRef.current.material.emissiveIntensity = 0.3 + speed * 0.5;
+                    }
+                }
+            });
+
+            return (
+                <group position={[0, 0, 0]}>
+                    <Sphere position={[0, 2.5, 0]} args={[0.1]}>
+                        <meshStandardMaterial color="#64748b" />
+                    </Sphere>
+
+                    <group ref={pendulumGroupRef} position={[0, 2.5, 0]}>
+                        <mesh position={[0, -1.25, 0]}>
+                            <cylinderGeometry args={[0.02, 0.02, 2.5]} />
+                            <meshStandardMaterial color="#64748b" />
+                        </mesh>
+
+                        <Sphere ref={ballRef} position={[0, -2.5, 0]} args={[0.3]}>
+                            <meshStandardMaterial
+                                color={energyLevel > 1.5 ? "#ef4444" : energyLevel > 0.8 ? "#f59e0b" : "#3b82f6"}
+                                emissive={energyLevel > 1.5 ? "#ef4444" : energyLevel > 0.8 ? "#f59e0b" : "#3b82f6"}
+                                emissiveIntensity={0.4}
+                                metalness={0.8}
+                                roughness={0.2}
+                            />
+                        </Sphere>
+                    </group>
+
+                    <Text position={[0, -4, 0]} fontSize={0.3} color="white" anchorX="center" anchorY="middle">
+                        {`ENERGÍA TOTAL: ${energyLevel.toFixed(1)}J (CONSTANTE)`}
+                    </Text>
+                </group>
+            );
+        }
+
+        // Simulador de entropía
+        function EntropyDemo({ entropyState }) {
+            const particlesRef = useRef([]);
+
+            useFrame(() => {
+                particlesRef.current.forEach((particle, i) => {
+                    if (particle) {
+                        if (entropyState === "high") {
+                            particle.position.x += (Math.random() - 0.5) * 0.3;
+                            particle.position.y += (Math.random() - 0.5) * 0.3;
+                            particle.position.z += (Math.random() - 0.5) * 0.15;
+                            particle.rotation.x += 0.15;
+                            particle.rotation.y += 0.15;
+                            particle.rotation.z += 0.1;
+
+                            if (Math.abs(particle.position.x) > 5) particle.position.x *= 0.7;
+                            if (Math.abs(particle.position.y) > 4) particle.position.y *= 0.7;
+                            if (Math.abs(particle.position.z) > 2) particle.position.z *= 0.7;
+                        } else if (entropyState === "transition") {
+                            particle.position.x += (Math.random() - 0.5) * 0.15;
+                            particle.position.y += (Math.random() - 0.5) * 0.15;
+                            particle.position.z += (Math.random() - 0.5) * 0.08;
+                            particle.rotation.x += 0.05;
+                            particle.rotation.y += 0.05;
+
+                            if (Math.abs(particle.position.x) > 3) particle.position.x *= 0.9;
+                            if (Math.abs(particle.position.y) > 3) particle.position.y *= 0.9;
+                        } else {
+                            const targetX = ((i % 8) - 3.5) * 0.7;
+                            const targetY = (Math.floor(i / 8) - 1.5) * 0.7;
+                            const targetZ = 0;
+
+                            particle.position.x += (targetX - particle.position.x) * 0.15;
+                            particle.position.y += (targetY - particle.position.y) * 0.15;
+                            particle.position.z += (targetZ - particle.position.z) * 0.15;
+
+                            particle.rotation.x *= 0.9;
+                            particle.rotation.y *= 0.9;
+                            particle.rotation.z *= 0.9;
+                        }
+                    }
+                });
+            });
+
+            return (
+                <group position={[0, 0, 0]}>
+                    {Array.from({ length: 32 }).map((_, i) => (
+                        <Sphere
+                            key={i}
+                            ref={(el) => (particlesRef.current[i] = el)}
+                            position={[
+                                ((i % 8) - 3.5) * 0.7 + (entropyState === "high" ? (Math.random() - 0.5) * 2 : 0),
+                                (Math.floor(i / 8) - 1.5) * 0.7 + (entropyState === "high" ? (Math.random() - 0.5) * 2 : 0),
+                                entropyState === "high" ? (Math.random() - 0.5) * 1 : 0,
+                            ]}
+                            args={[0.15]}
+                        >
+                            <meshStandardMaterial
+                                color={entropyState === "high" ? "#ef4444" : entropyState === "transition" ? "#f59e0b" : "#3b82f6"}
+                                emissive={entropyState === "high" ? "#ef4444" : entropyState === "transition" ? "#f59e0b" : "#3b82f6"}
+                                emissiveIntensity={entropyState === "high" ? 0.6 : entropyState === "transition" ? 0.4 : 0.2}
+                                metalness={0.3}
+                                roughness={0.7}
+                            />
+                        </Sphere>
+                    ))}
+
+                    <Text position={[0, -3.5, 0]} fontSize={0.4} color="white" anchorX="center" anchorY="middle">
+                        {entropyState === "low" && "ORDEN: Las partículas están organizadas (Entropía Baja)"}
+                        {entropyState === "transition" && "TRANSICIÓN: Las partículas se están desordenando..."}
+                        {entropyState === "high" && "DESORDEN: Las partículas están caóticas (Entropía Alta)"}
+                    </Text>
+                </group>
+            );
+        }
+
+        // Simulador de temperatura
+        function TemperatureDemo({ temperature }) {
+            const particlesRef = useRef([]);
+
+            useFrame(() => {
+                const speed = temperature / 100;
+                const vibration = temperature / 1000;
+
+                particlesRef.current.forEach((particle, i) => {
+                    if (particle) {
+                        particle.position.x += (Math.random() - 0.5) * speed * 0.05;
+                        particle.position.y += (Math.random() - 0.5) * speed * 0.05;
+                        particle.position.z += (Math.random() - 0.5) * speed * 0.03;
+
+                        particle.rotation.x += vibration;
+                        particle.rotation.y += vibration;
+
+                        if (Math.abs(particle.position.x) > 3) particle.position.x *= 0.9;
+                        if (Math.abs(particle.position.y) > 3) particle.position.y *= 0.9;
+                        if (Math.abs(particle.position.z) > 2) particle.position.z *= 0.9;
+                    }
+                });
+            });
+
+            const getTemperatureColor = () => {
+                if (temperature > 250) return "#ef4444";
+                if (temperature > 150) return "#f59e0b";
+                if (temperature > 50) return "#3b82f6";
+                return "#1e40af";
+            };
+
+            return (
+                <group position={[0, 0, 0]}>
+                    {Array.from({ length: 24 }).map((_, i) => (
+                        <Sphere
+                            key={i}
+                            ref={(el) => (particlesRef.current[i] = el)}
+                            position={[(Math.random() - 0.5) * 4, (Math.random() - 0.5) * 4, (Math.random() - 0.5) * 2]}
+                            args={[0.12]}
+                        >
+                            <meshStandardMaterial
+                                color={getTemperatureColor()}
+                                emissive={getTemperatureColor()}
+                                emissiveIntensity={temperature / 500}
+                            />
+                        </Sphere>
+                    ))}
+
+                    <Text position={[0, -3, 0]} fontSize={0.4} color="white" anchorX="center" anchorY="middle">
+                        {`${temperature}K`}
+                    </Text>
+                </group>
+            );
+        }
+
+        // Preguntas del quiz
+        const quizQuestions = [
+            {
+                id: 1,
+                question: "¿Qué estudia la termodinámica?",
+                options: [
+                    "Solo la temperatura",
+                    "Las transformaciones de la energía y vínculos entre calor y energía",
+                    "Solo la presión",
+                    "Solo el volumen",
+                ],
+                correct: 1,
+            },
+            {
+                id: 2,
+                question: "¿En cuál de estas áreas NO se aplica la termodinámica?",
+                options: ["Ingeniería", "Química", "Astrología", "Biología"],
+                correct: 2,
+            },
+            {
+                id: 3,
+                question: "¿Qué caracteriza a un sistema cerrado?",
+                options: [
+                    "Intercambio libre de materia y energía",
+                    "Solo intercambio de energía",
+                    "Sin intercambio de materia ni energía",
+                    "Solo intercambio de materia",
+                ],
+                correct: 1,
+            },
+            {
+                id: 4,
+                question: "¿Qué establece la Primera Ley de la Termodinámica?",
+                options: [
+                    "La energía se crea constantemente",
+                    "La energía se destruye fácilmente",
+                    "La energía no se crea ni se destruye, solo se transforma",
+                    "La energía es infinita",
+                ],
+                correct: 2,
+            },
+            {
+                id: 5,
+                question: "¿Qué dice la Segunda Ley de la Termodinámica?",
+                options: [
+                    "La entropía siempre disminuye",
+                    "La entropía del universo tiende a aumentar",
+                    "La entropía es constante",
+                    "La entropía no existe",
+                ],
+                correct: 1,
+            },
+            {
+                id: 6,
+                question: "¿Qué establece la Tercera Ley de la Termodinámica?",
+                options: [
+                    "Es fácil alcanzar el cero absoluto",
+                    "El cero absoluto no existe",
+                    "Es imposible alcanzar el cero absoluto mediante procesos físicos finitos",
+                    "El cero absoluto es 100K",
+                ],
+                correct: 2,
+            },
+        ];
+
+        // Componente del Quiz Final
+        function FinalQuiz({ onComplete }) {
+            const [currentQuestion, setCurrentQuestion] = useState(0);
+            const [answers, setAnswers] = useState({});
+            const [showResults, setShowResults] = useState(false);
+            const [score, setScore] = useState(0);
+            const [selectedAnswer, setSelectedAnswer] = useState(null);
+            const [showFeedback, setShowFeedback] = useState(false);
+            const [isCorrect, setIsCorrect] = useState(false);
+            const [showConfetti, setShowConfetti] = useState(false);
+
+            const question = quizQuestions[currentQuestion];
+
+            const handleAnswer = (answerIndex) => {
+                setSelectedAnswer(answerIndex);
+                const correct = answerIndex === question.correct;
+                setIsCorrect(correct);
+                setShowFeedback(true);
+
+                setAnswers((prev) => ({
+                    ...prev,
+                    [currentQuestion]: answerIndex,
+                }));
+
+                setTimeout(() => {
+                    setShowFeedback(false);
+                    setSelectedAnswer(null);
+                }, 2000);
+            };
+
+            const nextQuestion = () => {
+                if (showFeedback) return;
+
+                if (currentQuestion < quizQuestions.length - 1) {
+                    setCurrentQuestion((prev) => prev + 1);
+                } else {
+                    let correctAnswers = 0;
+                    quizQuestions.forEach((q, index) => {
+                        if (answers[index] === q.correct) {
+                            correctAnswers++;
+                        }
+                    });
+                    setScore(correctAnswers);
+                    setShowResults(true);
+
+                    if (correctAnswers >= 4) {
+                        setShowConfetti(true);
+                    }
+                }
+            };
+
+            const prevQuestion = () => {
+                if (showFeedback) return;
+                if (currentQuestion > 0) {
+                    setCurrentQuestion((prev) => prev - 1);
+                }
+            };
+
+            const restartQuiz = () => {
+                setCurrentQuestion(0);
+                setAnswers({});
+                setShowResults(false);
+                setScore(0);
+                setSelectedAnswer(null);
+                setShowFeedback(false);
+                setShowConfetti(false);
+            };
+
+            const getScoreMessage = () => {
+                const percentage = (score / quizQuestions.length) * 100;
+                if (percentage === 100) return "🎉 ¡PERFECTO! Eres un experto en termodinámica";
+                if (percentage >= 80) return "🍭 ¡EXCELENTE! Tienes muy buen conocimiento";
+                if (percentage >= 60) return "🍬 ¡BIEN! Conoces los conceptos básicos";
+                if (percentage >= 40) return "📚 Necesitas repasar un poco más";
+                return "😅 Te recomendamos estudiar más la presentación";
+            };
+
+            const getReward = () => {
+                const percentage = (score / quizQuestions.length) * 100;
+                if (percentage === 100) return "🎂🍭🍬🧁🍫🍩";
+                if (percentage >= 80) return "🍭🍬🧁🍫";
+                if (percentage >= 60) return "🍭🍬🧁";
+                if (percentage >= 40) return "🍭🍬";
+                return "🍭";
+            };
+
+            if (showResults) {
+                return (
+                    <>
+                        {showConfetti && <Confetti />}
+                        <div className="text-center space-y-8 max-w-4xl">
+                            <h2 className="text-4xl font-bold mb-8">🏆 RESULTADOS DEL QUIZ</h2>
+                            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-8 border-2 border-white/20">
+                                <div className="text-6xl mb-4 animate-bounce">{getReward()}</div>
+                                <h3 className="text-3xl font-bold mb-4">
+                                    {score} / {quizQuestions.length} respuestas correctas
+                                </h3>
+                                <p className="text-xl mb-6">{getScoreMessage()}</p>
+                            </div>
+                            <button 
+                                onClick={restartQuiz} 
+                                className="bg-blue-600 hover:bg-blue-700 px-8 py-3 rounded-lg text-white font-bold"
+                            >
+                                🔄 Repetir Quiz
+                            </button>
+                        </div>
+                    </>
+                );
+            }
+
+            return (
+                <div className="text-center space-y-8 max-w-4xl">
+                    <div className="flex items-center justify-between mb-8">
+                        <h2 className="text-3xl font-bold">🎯 QUIZ DE TERMODINÁMICA</h2>
+                        <div className="text-lg">
+                            Pregunta {currentQuestion + 1} de {quizQuestions.length}
+                        </div>
+                    </div>
+
+                    <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-8 border-2 border-white/20 relative">
+                        <h3 className="text-2xl font-bold mb-8">{question.question}</h3>
+
+                        <div className="grid grid-cols-1 gap-4 mb-8">
+                            {question.options.map((option, index) => {
+                                let buttonClass = "p-6 text-left justify-start text-wrap h-auto transition-all duration-300 rounded-lg cursor-pointer ";
+
+                                if (showFeedback && selectedAnswer === index) {
+                                    if (isCorrect) {
+                                        buttonClass += "bg-green-600 border-2 border-green-400 animate-pulse";
+                                    } else {
+                                        buttonClass += "bg-red-600 border-2 border-red-400 animate-pulse";
+                                    }
+                                } else if (showFeedback && index === question.correct) {
+                                    buttonClass += "bg-green-600 border-2 border-green-400";
+                                } else if (answers[currentQuestion] === index && !showFeedback) {
+                                    buttonClass += "bg-blue-600 hover:bg-blue-700 border-2 border-blue-400";
+                                } else {
+                                    buttonClass += "bg-slate-700 hover:bg-slate-600";
+                                }
+
+                                return (
+                                    <div
+                                        key={index}
+                                        onClick={() => !showFeedback && handleAnswer(index)}
+                                        className={buttonClass}
+                                    >
+                                        <span className="mr-4 font-bold text-lg text-white">{String.fromCharCode(65 + index)})</span>
+                                        <span className="text-base text-white">{option}</span>
+                                        {showFeedback && selectedAnswer === index && (
+                                            <span className="ml-auto">
+                                                {isCorrect ? (
+                                                    <span className="text-white animate-bounce">✓</span>
+                                                ) : (
+                                                    <span className="text-white animate-bounce">✗</span>
+                                                )}
+                                            </span>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+
+                        {showFeedback && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-2xl">
+                                <div className={`text-center p-8 rounded-xl ${isCorrect ? "bg-green-600" : "bg-red-600"} animate-pulse`}>
+                                    <div className="text-6xl mb-4">
+                                        {isCorrect ? "✓" : "✗"}
+                                    </div>
+                                    <h3 className="text-2xl font-bold text-white">{isCorrect ? "¡CORRECTO!" : "¡INCORRECTO!"}</h3>
+                                    {!isCorrect && <p className="text-lg mt-2 text-white">Respuesta correcta: {question.options[question.correct]}</p>}
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="flex justify-between items-center">
+                            <button
+                                onClick={prevQuestion}
+                                disabled={currentQuestion === 0 || showFeedback}
+                                className="bg-white/20 border border-white/30 hover:bg-white/30 px-4 py-2 rounded-lg text-white disabled:opacity-50"
+                            >
+                                ← Anterior
+                            </button>
+
+                            <div className="text-sm opacity-70 text-white">
+                                {answers[currentQuestion] !== undefined ? "✓ Respondida" : "Selecciona una opción"}
+                            </div>
+
+                            <button
+                                onClick={nextQuestion}
+                                disabled={answers[currentQuestion] === undefined || showFeedback}
+                                className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg text-white disabled:opacity-50"
+                            >
+                                {currentQuestion === quizQuestions.length - 1 ? "Ver Resultados" : "Siguiente"} →
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="w-full bg-slate-700 rounded-full h-2">
+                        <div
+                            className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                            style={{ width: `${((currentQuestion + 1) / quizQuestions.length) * 100}%` }}
+                        ></div>
+                    </div>
+                </div>
+            );
+        }
+
+        // Componente principal
+        function ThermodynamicsPresentation() {
+            const [currentSlide, setCurrentSlide] = useState(0);
+            const [systemType, setSystemType] = useState("open");
+            const [energyLevel, setEnergyLevel] = useState(1);
+            const [isRunning, setIsRunning] = useState(true);
+            const [entropyState, setEntropyState] = useState("low");
+            const [temperature, setTemperature] = useState(300);
+
+            const slides = [
+                {
+                    id: 0,
+                    title: "PRESENTACIÓN",
+                    content: (
+                        <div className="text-center space-y-8 max-w-3xl">
+                            <h2 className="text-3xl font-bold mb-12">TERMODINÁMICA</h2>
+                            <div className="space-y-4 text-xl">
+                                <p className="font-bold">INTEGRANTES:</p>
+                                <p className="text-blue-200">MÓNICA YURLEY GARZÓN TORRES</p>
+                                <p className="text-blue-200">MAIRA KATERÍN MOLINA SOPELANO</p>
+                                <p className="text-blue-200">YEFERSON FERNEY PEÑA DIMATE</p>
+                            </div>
+                        </div>
+                    ),
+                    background: "from-slate-900 via-blue-900 to-slate-900",
+                },
+                {
+                    id: 1,
+                    title: "TERMODINÁMICA",
+                    content: null,
+                    background: "from-slate-900 via-blue-900 to-slate-900",
+                    showAtom: true,
+                },
+                {
+                    id: 2,
+                    title: "¿QUÉ ES?",
+                    content: (
+                        <div className="text-left space-y-6">
+                            <p className="text-lg">Es una rama de la física, que estudia:</p>
+                            <ul className="space-y-3 text-base">
+                                <li className="flex items-start">
+                                    <span className="text-blue-400 mr-2">•</span>
+                                    Las transformaciones de la energía.
+                                </li>
+                                <li className="flex items-start">
+                                    <span className="text-blue-400 mr-2">•</span>
+                                    Los vínculos existentes entre el calor y las demás variedades de energía.
+                                </li>
+                            </ul>
+                            <div className="mt-8">
+                                <p className="text-lg mb-3">Analiza variables como:</p>
+                                <ul className="space-y-2 text-base">
+                                    <li className="flex items-start">
+                                        <span className="text-blue-400 mr-2">•</span>
+                                        Temperatura.
+                                    </li>
+                                    <li className="flex items-start">
+                                        <span className="text-blue-400 mr-2">•</span>
+                                        Presión.
+                                    </li>
+                                    <li className="flex items-start">
+                                        <span className="text-blue-400 mr-2">•</span>
+                                        Volumen.
+                                    </li>
+                                    <li className="flex items-start">
+                                        <span className="text-blue-400 mr-2">•</span>
+                                        Entropía.
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    ),
+                    background: "from-blue-900 via-slate-800 to-blue-900",
+                },
+                {
+                    id: 3,
+                    title: "APLICACIONES",
+                    content: (
+                        <div className="grid grid-cols-2 gap-8 w-full max-w-4xl">
+                            <div className="border-2 border-white p-6 rounded-lg bg-white/10 backdrop-blur-sm hover:bg-white/20 transition-all">
+                                <h3 className="text-xl font-bold mb-4 bg-white text-black px-4 py-2 rounded">INGENIERÍA</h3>
+                                <p className="text-sm">Diseño de motores, turbinas y sistemas de refrigeración.</p>
+                            </div>
+                            <div className="border-2 border-white p-6 rounded-lg bg-white/10 backdrop-blur-sm hover:bg-white/20 transition-all">
+                                <h3 className="text-xl font-bold mb-4 bg-white text-black px-4 py-2 rounded">QUÍMICA</h3>
+                                <p className="text-sm">Estudio de reacciones químicas, equilibrio y procesos termodinámicos en soluciones.</p>
+                            </div>
+                            <div className="border-2 border-white p-6 rounded-lg bg-white/10 backdrop-blur-sm hover:bg-white/20 transition-all">
+                                <h3 className="text-xl font-bold mb-4 bg-white text-black px-4 py-2 rounded">BIOLOGÍA</h3>
+                                <p className="text-sm">
+                                    Análisis de procesos metabólicos, fotosíntesis y funcionamiento de organismos vivos.
+                                </p>
+                            </div>
+                            <div className="border-2 border-white p-6 rounded-lg bg-white/10 backdrop-blur-sm hover:bg-white/20 transition-all">
+                                <h3 className="text-xl font-bold mb-4 bg-white text-black px-4 py-2 rounded">TECNOLOGÍA</h3>
+                                <p className="text-sm">
+                                    Desarrollo de dispositivos electrónicos, sistemas de enfriamiento y generación de energía.
+                                </p>
+                            </div>
+                        </div>
+                    ),
+                    background: "from-slate-900 via-blue-800 to-slate-900",
+                },
+                {
+                    id: 4,
+                    title: "Sistemas termodinámicos",
+                    content: "systems",
+                    background: "from-blue-900 via-slate-800 to-blue-900",
+                    showThermodynamicSystems: true,
+                },
+                {
+                    id: 5,
+                    title: "Leyes de la Termodinámica",
+                    content: null,
+                    background: "from-slate-900 via-blue-900 to-slate-900",
+                },
+                {
+                    id: 6,
+                    title: "Primera Ley de la Termodinámica",
+                    subtitle: "Ley de la Conservación de la Energía",
+                    content: "energy",
+                    background: "from-blue-900 via-slate-800 to-blue-900",
+                    showEnergyConservation: true,
+                },
+                {
+                    id: 7,
+                    title: "Segunda Ley de la Termodinámica",
+                    subtitle: "Ley de la Entropía",
+                    content: "entropy",
+                    background: "from-blue-900 via-slate-800 to-blue-900",
+                    showEntropyDemo: true,
+                },
+                {
+                    id: 8,
+                    title: "TERCERA LEY DE LA TERMODINÁMICA",
+                    content: "temperature",
+                    background: "from-slate-900 via-blue-900 to-slate-900",
+                    showTemperatureDemo: true,
+                },
+                {
+                    id: 9,
+                    title: "Leyes de la Termodinámica",
+                    content: (
+                        <div className="grid grid-cols-2 gap-8 w-full max-w-5xl">
+                            <div className="space-y-6">
+                                <div className="bg-blue-800 text-white px-6 py-3 rounded-lg">
+                                    <h3 className="text-lg font-bold">Primera Ley</h3>
+                                </div>
+                                <div className="bg-slate-800 text-white p-6 rounded-lg">
+                                    <p className="text-sm">
+                                        Ley de la conservación de la energía. La energía no se crea ni se destruye, solo se transforma. ΔU = Q - W
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="space-y-6">
+                                <div className="bg-blue-800 text-white px-6 py-3 rounded-lg">
+                                    <h3 className="text-lg font-bold">Segunda Ley</h3>
+                                </div>
+                                <div className="bg-slate-800 text-white p-6 rounded-lg">
+                                    <p className="text-sm">
+                                        Ley de la entropía. La entropía del universo tiende a aumentar en el tiempo. Los sistemas tienden
+                                        naturalmente al desorden.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="space-y-6">
+                                <div className="bg-blue-800 text-white px-6 py-3 rounded-lg">
+                                    <h3 className="text-lg font-bold">Tercera Ley</h3>
+                                </div>
+                                <div className="bg-slate-800 text-white p-6 rounded-lg">
+                                    <p className="text-sm">
+                                        Es imposible alcanzar el cero absoluto mediante un número finito de procesos físicos. A temperatura cero,
+                                        la entropía de un cristal perfecto es cero.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="space-y-6">
+                                <div className="bg-blue-800 text-white px-6 py-3 rounded-lg">
+                                    <h3 className="text-lg font-bold">Ley Cero</h3>
+                                </div>
+                                <div className="bg-slate-800 text-white p-6 rounded-lg">
+                                    <p className="text-sm">
+                                        Si dos sistemas están en equilibrio térmico con un tercero, entonces están en equilibrio térmico entre sí.
+                                        Establece el concepto de temperatura.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    ),
+                    background: "from-slate-900 via-blue-800 to-slate-900",
+                },
+                {
+                    id: 10,
+                    title: "REFERENCIAS",
+                    content: (
+                        <div className="text-left space-y-6 max-w-2xl">
+                            <p className="text-lg">https://blog.veto.cl/2020/11/05/termodi</p>
+                            <p className="text-lg">namica-que-es-y-donde-se-aplica/</p>
+                            <p className="text-lg mt-8">https://www2.montes.upm.es/dptos/di</p>
+                            <p className="text-lg">gfa/cfisica/termo1p/introtermo1p.html</p>
+                        </div>
+                    ),
+                    background: "from-slate-900 via-blue-900 to-slate-900",
+                },
+                {
+                    id: 11,
+                    title: "🎯 QUIZ FINAL",
+                    content: "quiz",
+                    background: "from-purple-900 via-blue-900 to-purple-900",
+                    isQuiz: true,
+                },
+            ];
+
+            const slide = slides[currentSlide];
+
+            const nextSlide = () => {
+                setCurrentSlide((prev) => (prev + 1) % slides.length);
+            };
+
+            const prevSlide = () => {
+                setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length);
+            };
+
+            const renderSlideContent = () => {
+                if (slide.content === "systems") {
+                    return (
+                        <div className="grid grid-cols-2 gap-8 w-full max-w-6xl items-center">
+                            <div className="space-y-6">
+                                <div className="grid grid-cols-1 gap-4">
+                                    <button
+                                        onClick={() => setSystemType("open")}
+                                        className={`p-6 text-left rounded-lg ${
+                                            systemType === "open" ? "bg-green-600 hover:bg-green-700" : "bg-slate-700 hover:bg-slate-600"
+                                        }`}
+                                    >
+                                        <div>
+                                            <h3 className="text-lg font-bold text-green-200">🟢 Sistema Abierto</h3>
+                                            <p className="text-sm mt-1">Intercambio libre de materia y energía</p>
+                                        </div>
+                                    </button>
+
+                                    <button
+                                        onClick={() => setSystemType("closed")}
+                                        className={`p-6 text-left rounded-lg ${
+                                            systemType === "closed" ? "bg-yellow-600 hover:bg-yellow-700" : "bg-slate-700 hover:bg-slate-600"
+                                        }`}
+                                    >
+                                        <div>
+                                            <h3 className="text-lg font-bold text-yellow-200">🟡 Sistema Cerrado</h3>
+                                            <p className="text-sm mt-1">Solo intercambio de energía (con contenedor)</p>
+                                        </div>
+                                    </button>
+
+                                    <button
+                                        onClick={() => setSystemType("isolated")}
+                                        className={`p-6 text-left rounded-lg ${
+                                            systemType === "isolated" ? "bg-red-600 hover:bg-red-700" : "bg-slate-700 hover:bg-slate-600"
+                                        }`}
+                                    >
+                                        <div>
+                                            <h3 className="text-lg font-bold text-red-200">🔴 Sistema Aislado</h3>
+                                            <p className="text-sm mt-1">Sin intercambio de materia ni energía</p>
+                                        </div>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="text-center">
+                                <h3 className="text-xl font-bold mb-4">Observa las diferencias</h3>
+                                <p className="text-sm mb-2">Cada sistema se comporta de manera diferente</p>
+                                <div className="bg-slate-800/50 p-6 rounded-lg">
+                                    <p className="text-sm">
+                                        {systemType === "open" && "Las partículas pueden entrar y salir libremente del sistema"}
+                                        {systemType === "closed" && "Las partículas están contenidas pero pueden moverse libremente dentro"}
+                                        {systemType === "isolated" && "Las partículas tienen movimiento muy limitado"}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    );
+                }
+                if (slide.content === "energy") {
+                    return (
+                        <div className="grid grid-cols-2 gap-8 items-center">
+                            <div className="space-y-6 text-left">
+                                <p className="text-lg">La energía no se crea ni se destruye, solo se transforma de una forma a otra.</p>
+
+                                <div className="space-y-4">
+                                    <h3 className="text-xl font-bold mb-3">Controles del Péndulo:</h3>
+
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => setEnergyLevel(0.5)}
+                                            className={`px-4 py-2 rounded-lg ${energyLevel === 0.5 ? "bg-blue-600" : "bg-slate-600"}`}
+                                        >
+                                            🔵 Baja Energía (0.5J)
+                                        </button>
+                                        <button
+                                            onClick={() => setEnergyLevel(1)}
+                                            className={`px-4 py-2 rounded-lg ${energyLevel === 1 ? "bg-yellow-600" : "bg-slate-600"}`}
+                                        >
+                                            🟡 Media Energía (1J)
+                                        </button>
+                                        <button
+                                            onClick={() => setEnergyLevel(2)}
+                                            className={`px-4 py-2 rounded-lg ${energyLevel === 2 ? "bg-red-600" : "bg-slate-600"}`}
+                                        >
+                                            🔴 Alta Energía (2J)
+                                        </button>
+                                    </div>
+
+                                    <div className="flex gap-2">
+                                        <button 
+                                            onClick={() => setIsRunning(!isRunning)} 
+                                            className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg"
+                                        >
+                                            {isRunning ? "⏸️ Pausar" : "▶️ Iniciar"}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="bg-slate-800/50 p-4 rounded-lg">
+                                    <p className="text-sm">
+                                        <strong>Observa:</strong> Aunque cambie la velocidad del péndulo, la energía total se conserva. Solo cambia
+                                        entre energía cinética (movimiento) y potencial (altura).
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="text-center">
+                                <h3 className="text-xl font-bold mb-4">Péndulo de Conservación</h3>
+                                <p className="text-sm">La energía total siempre se mantiene constante</p>
+                            </div>
+                        </div>
+                    );
+                }
+                if (slide.content === "entropy") {
+                    const startTransition = () => {
+                        setEntropyState("transition");
+                        setTimeout(() => setEntropyState("high"), 3000);
+                    };
+
+                    return (
+                        <div className="grid grid-cols-2 gap-8 items-center">
+                            <div className="space-y-6 text-left">
+                                <p className="text-lg">La entropía del universo tiende a aumentar. Los sistemas van del orden al desorden.</p>
+
+                                <div className="space-y-4">
+                                    <h3 className="text-xl font-bold mb-3">Controles:</h3>
+
+                                    <div className="flex flex-col gap-2">
+                                        <button
+                                            onClick={() => setEntropyState("low")}
+                                            className={`p-4 rounded-lg ${entropyState === "low" ? "bg-blue-600" : "bg-slate-600"}`}
+                                        >
+                                            <span className="flex items-center">
+                                                <span className="w-4 h-4 bg-blue-400 rounded-full mr-2"></span>
+                                                Entropía Baja (Sistema Ordenado)
+                                            </span>
+                                        </button>
+                                        <button onClick={startTransition} className="bg-yellow-600 hover:bg-yellow-700 p-4 rounded-lg">
+                                            <span className="flex items-center">
+                                                <span className="w-4 h-4 bg-yellow-400 rounded-full mr-2"></span>
+                                                Ver Transición (Orden → Desorden)
+                                            </span>
+                                        </button>
+                                        <button
+                                            onClick={() => setEntropyState("high")}
+                                            className={`p-4 rounded-lg ${entropyState === "high" ? "bg-red-600" : "bg-slate-600"}`}
+                                        >
+                                            <span className="flex items-center">
+                                                <span className="w-4 h-4 bg-red-400 rounded-full mr-2"></span>
+                                                Entropía Alta (Sistema Desordenado)
+                                            </span>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="bg-slate-800/50 p-4 rounded-lg">
+                                    <p className="text-sm">
+                                        <strong>Concepto clave:</strong> En la naturaleza, los sistemas tienden espontáneamente hacia el desorden
+                                        (mayor entropía). Es muy difícil que vuelvan al orden por sí solos.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="text-center">
+                                <h3 className="text-xl font-bold mb-4">Simulador de Entropía</h3>
+                                <p className="text-sm mb-2">Ve cómo las partículas van del orden al desorden</p>
+                                <div className="bg-slate-800/50 p-4 rounded-lg">
+                                    <p className="text-xs">
+                                        {entropyState === "low" && "🔵 Las partículas forman una estructura ordenada"}
+                                        {entropyState === "transition" && "🟡 Observa cómo se rompe el orden gradualmente"}
+                                        {entropyState === "high" && "🔴 Las partículas se mueven caóticamente"}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    );
+                }
+                if (slide.content === "temperature") {
+                    return (
+                        <div className="grid grid-cols-2 gap-8 items-center">
+                            <div className="p-8 border-2 border-white rounded-3xl bg-white/10 backdrop-blur-sm">
+                                <p className="text-lg leading-relaxed mb-4">
+                                    Es imposible alcanzar el cero absoluto (0 K) mediante procesos físicos finitos.
+                                </p>
+                                <p className="text-lg leading-relaxed mb-6">
+                                    A medida que la temperatura disminuye, el movimiento molecular se reduce hasta casi detenerse.
+                                </p>
+
+                                <div className="space-y-4">
+                                    <h3 className="text-xl font-bold mb-3">Controles de Temperatura:</h3>
+
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <button
+                                            onClick={() => setTemperature(300)}
+                                            className={`text-sm p-4 rounded-lg ${temperature === 300 ? "bg-red-600" : "bg-slate-600"}`}
+                                        >
+                                            🔴 300K (Caliente)
+                                        </button>
+                                        <button
+                                            onClick={() => setTemperature(200)}
+                                            className={`text-sm p-4 rounded-lg ${temperature === 200 ? "bg-yellow-600" : "bg-slate-600"}`}
+                                        >
+                                            🟡 200K (Tibio)
+                                        </button>
+                                        <button
+                                            onClick={() => setTemperature(100)}
+                                            className={`text-sm p-4 rounded-lg ${temperature === 100 ? "bg-blue-600" : "bg-slate-600"}`}
+                                        >
+                                            🔵 100K (Frío)
+                                        </button>
+                                        <button
+                                            onClick={() => setTemperature(10)}
+                                            className={`text-sm p-4 rounded-lg ${temperature === 10 ? "bg-purple-600" : "bg-slate-600"}`}
+                                        >
+                                            🟣 10K (Muy Frío)
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="bg-slate-800/50 p-4 rounded-lg mt-4">
+                                    <p className="text-sm">
+                                        <strong>Observa:</strong> A menor temperatura, menor movimiento molecular. En el cero absoluto, todo
+                                        movimiento térmico cesaría.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="text-center">
+                                <h3 className="text-xl font-bold mb-4">Movimiento Molecular</h3>
+                                <p className="text-sm">Ve cómo el movimiento cambia con la temperatura</p>
+                            </div>
+                        </div>
+                    );
+                }
+                if (slide.content === "quiz") {
+                    return <FinalQuiz onComplete={() => {}} />;
+                }
+                return slide.content;
+            };
+
+            return (
+                <div className={`min-h-screen bg-gradient-to-br ${slide.background} text-white relative overflow-hidden`}>
+                    <div className="absolute inset-0 opacity-20">
+                        <div className="absolute top-10 right-10 w-64 h-64 bg-blue-500/30 rounded-full blur-3xl"></div>
+                        <div className="absolute bottom-10 left-10 w-96 h-96 bg-slate-500/20 rounded-full blur-3xl"></div>
+                        <div className="absolute top-1/2 left-1/4 w-48 h-48 bg-blue-400/20 rounded-full blur-2xl"></div>
+                    </div>
+
+                    {!slide.isQuiz && (
+                        <div className="absolute top-0 right-0 w-1/2 h-full pointer-events-none">
+                            <Canvas camera={{ position: [0, 0, 8], fov: 50 }}>
+                                <ambientLight intensity={0.6} />
+                                <pointLight position={[10, 10, 10]} />
+                                <Environment preset="night" />
+
+                                {slide.showAtom && (
+                                    <group position={[0, 0, 0]}>
+                                        <Float speed={2} rotationIntensity={1} floatIntensity={0.5}>
+                                            <group>
+                                                <Sphere args={[0.3]}>
+                                                    <meshStandardMaterial color="#f59e0b" emissive="#f59e0b" emissiveIntensity={0.5} />
+                                                </Sphere>
+                                                {[0, 1, 2].map((i) => (
+                                                    <group key={i} rotation={[0, 0, (i * Math.PI) / 3]}>
+                                                        <Float speed={3 + i} rotationIntensity={2}>
+                                                            <Sphere position={[1.5, 0, 0]} args={[0.1]}>
+                                                                <meshStandardMaterial color="#ef4444" emissive="#ef4444" emissiveIntensity={0.3} />
+                                                            </Sphere>
+                                                        </Float>
+                                                    </group>
+                                                ))}
+                                            </group>
+                                        </Float>
+                                    </group>
+                                )}
+
+                                {slide.showThermodynamicSystems && <ThermodynamicSystemsDemo systemType={systemType} />}
+                                {slide.showEnergyConservation && <EnergyConservationDemo energyLevel={energyLevel} isRunning={isRunning} />}
+                                {slide.showEntropyDemo && <EntropyDemo entropyState={entropyState} />}
+                                {slide.showTemperatureDemo && <TemperatureDemo temperature={temperature} />}
+                            </Canvas>
+                        </div>
+                    )}
+
+                    <div className="relative z-10 min-h-screen flex flex-col items-center justify-center p-8">
+                        <div className="text-center space-y-8 max-w-6xl mx-auto">
+                            <h1 className="text-4xl md:text-6xl font-bold tracking-wider">{slide.title}</h1>
+                            {slide.subtitle && <h2 className="text-2xl md:text-3xl font-semibold text-blue-300">{slide.subtitle}</h2>}
+                            {slide.content && <div className="mt-12">{renderSlideContent()}</div>}
+                        </div>
+
+                        {!slide.isQuiz && (
+                            <div className="absolute bottom-8 right-8 flex items-center space-x-4">
+                                <button
+                                    onClick={prevSlide}
+                                    className="bg-white/20 border border-white/30 hover:bg-white/30 p-2 rounded-lg"
+                                >
+                                    ←
+                                </button>
+
+                                <span className="text-sm">
+                                    {currentSlide + 1} / {slides.length}
+                                </span>
+
+                                <button
+                                    onClick={nextSlide}
+                                    className="bg-white/20 border border-white/30 hover:bg-white/30 p-2 rounded-lg"
+                                >
+                                    →
+                                </button>
+                            </div>
+                        )}
+
+                        {!slide.isQuiz && (
+                            <div className="absolute bottom-8 left-8 text-sm opacity-80">
+                                <p>
+                                    Diapositiva {currentSlide + 1} de {slides.length}
+                                </p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.render(<ThermodynamicsPresentation />, document.getElementById('root'));
+    </script>
+</body>
+</html>
